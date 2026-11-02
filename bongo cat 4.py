@@ -1,0 +1,543 @@
+
+import tkinter as tk
+import pydirectinput
+import keyboard
+import random
+
+# ==========================================
+# CONFIGURATION
+# ==========================================
+
+pydirectinput.PAUSE = 0
+pydirectinput.FAILSAFE = True
+
+running = False
+mouse_count = 0
+key_count = 0
+
+job = None
+release_job = None
+active_key = None
+
+mouse_held = False
+key_held = False
+
+BG = "#090B12"
+PANEL = "#151827"
+PANEL2 = "#20243A"
+PURPLE = "#A78BFA"
+CYAN = "#67E8F9"
+WHITE = "#F1F2F8"
+MUTED = "#858AA3"
+GREEN = "#34D399"
+RED = "#FB7185"
+
+KEYS = list("abcdefghijklmnopqrstuvwxyz0123456789")
+
+# ==========================================
+# GESTION DES ENTREES
+# ==========================================
+
+def release_inputs():
+    global active_key, mouse_held, key_held
+
+    try:
+        if key_held and active_key:
+            pydirectinput.keyUp(active_key)
+
+        if mouse_held:
+            pydirectinput.mouseUp(button="left")
+
+    except Exception as error:
+        print("Erreur release:", error)
+
+    active_key = None
+    mouse_held = False
+    key_held = False
+
+
+def start():
+    global running
+
+    if running:
+        return
+
+    running = True
+
+    status_label.config(
+        text="● RUNNING",
+        fg=GREEN
+    )
+
+    start_button.config(text="PAUSE")
+
+    automation()
+
+
+def stop():
+    global running, job, release_job
+
+    running = False
+
+    if job is not None:
+        root.after_cancel(job)
+        job = None
+
+    if release_job is not None:
+        root.after_cancel(release_job)
+        release_job = None
+
+    release_inputs()
+
+    status_label.config(
+        text="● STOPPED",
+        fg=RED
+    )
+
+    start_button.config(text="START")
+
+
+def toggle():
+    if running:
+        stop()
+    else:
+        start()
+
+
+
+
+# ==========================================
+# AUTOMATISATION
+# ==========================================
+
+def automation():
+    global mouse_count, key_count
+    global job, release_job
+    global active_key, mouse_held, key_held
+
+    if not running:
+        return
+
+    mode = mode_var.get()
+
+    try:
+
+        if mode in ("Clavier", "Combiné"):
+
+            active_key = random.choice(KEYS)
+
+            pydirectinput.keyDown(active_key)
+            key_held = True
+
+            key_count += 1
+
+        if mode in ("Souris", "Combiné"):
+
+            pydirectinput.mouseDown(button="left")
+            mouse_held = True
+
+            mouse_count += 1
+
+        update_counters()
+
+        def release():
+            global release_job
+            release_inputs()
+            release_job = None
+
+        release_job = root.after(50, release)
+
+        delay = max(100, int(1000 / cps.get()))
+
+        job = root.after(delay, automation)
+
+    except Exception as error:
+
+        stop()
+
+        status_label.config(
+            text="● ERROR",
+            fg=RED
+        )
+
+        print(error)
+
+
+# ==========================================
+# COMPTEURS
+# ==========================================
+
+def update_counters():
+
+    mouse_value.config(text=str(mouse_count))
+    key_value.config(text=str(key_count))
+
+
+def reset():
+
+    global mouse_count, key_count
+
+    mouse_count = 0
+    key_count = 0
+
+    update_counters()
+
+
+# ==========================================
+# RACCOURCIS CLAVIER
+# ==========================================
+
+def register_shortcuts():
+
+    keyboard.add_hotkey(
+        "F6",
+        lambda: root.after(0, toggle)
+    )
+
+    keyboard.add_hotkey(
+        "F7",
+        lambda: root.after(0, stop)
+    )
+
+    keyboard.add_hotkey(
+        "F10",
+        lambda: root.after(0, close_app)
+    )
+
+
+# ==========================================
+# INTERFACE
+# ==========================================
+
+root = tk.Tk()
+
+root.title("Bongo Cat AutoClicker V4")
+root.geometry("600x950")
+root.minsize(600, 950)
+root.resizable(True, True)
+root.configure(bg=BG)
+root.resizable(False, False)
+
+# TITRE
+
+header = tk.Frame(root, bg=BG)
+header.pack(fill="x", padx=25, pady=25)
+
+tk.Label(
+    header,
+    text="🐱",
+    font=("Segoe UI Emoji", 30),
+    bg=BG,
+    fg=PURPLE
+).pack(side="left")
+
+title_frame = tk.Frame(header, bg=BG)
+title_frame.pack(side="left", padx=12)
+
+tk.Label(
+    title_frame,
+    text="BONGO CAT",
+    font=("Arial", 20, "bold"),
+    bg=BG,
+    fg=WHITE
+).pack(anchor="w")
+
+tk.Label(
+    title_frame,
+    text="AUTOCLICKER V4  /  DARK EDITION",
+    font=("Arial", 8, "bold"),
+    bg=BG,
+    fg=MUTED
+).pack(anchor="w")
+
+# STATUT
+
+status_card = tk.Frame(
+    root,
+    bg=PANEL,
+    padx=20,
+    pady=15
+)
+
+status_card.pack(fill="x", padx=25, pady=5)
+
+tk.Label(
+    status_card,
+    text="AUTOMATION STATUS",
+    bg=PANEL,
+    fg=MUTED,
+    font=("Arial", 9, "bold")
+).pack(anchor="w")
+
+status_label = tk.Label(
+    status_card,
+    text="● STOPPED",
+    bg=PANEL,
+    fg=RED,
+    font=("Arial", 19, "bold")
+)
+
+status_label.pack(anchor="w", pady=8)
+
+# COMPTEURS
+
+stats = tk.Frame(root, bg=BG)
+stats.pack(fill="x", padx=25, pady=15)
+
+
+def create_stat(parent, label, color):
+
+    frame = tk.Frame(
+        parent,
+        bg=PANEL,
+        padx=15,
+        pady=15
+    )
+
+    tk.Label(
+        frame,
+        text=label,
+        bg=PANEL,
+        fg=MUTED,
+        font=("Arial", 9, "bold")
+    ).pack(anchor="w")
+
+    value = tk.Label(
+        frame,
+        text="0",
+        bg=PANEL,
+        fg=color,
+        font=("Arial", 25, "bold")
+    )
+
+    value.pack(anchor="w")
+
+    return frame, value
+
+
+mouse_frame, mouse_value = create_stat(
+    stats,
+    "MOUSE CLICKS",
+    CYAN
+)
+
+key_frame, key_value = create_stat(
+    stats,
+    "KEYSTROKES",
+    PURPLE
+)
+
+mouse_frame.pack(
+    side="left",
+    fill="both",
+    expand=True,
+    padx=(0, 6)
+)
+
+key_frame.pack(
+    side="right",
+    fill="both",
+    expand=True,
+    padx=(6, 0)
+)
+
+# PARAMETRES
+
+settings = tk.Frame(
+    root,
+    bg=PANEL,
+    padx=20,
+    pady=15
+)
+
+settings.pack(fill="x", padx=25, pady=5)
+
+tk.Label(
+    settings,
+    text="SETTINGS",
+    bg=PANEL,
+    fg=WHITE,
+    font=("Arial", 11, "bold")
+).pack(anchor="w", pady=(0, 10))
+
+tk.Label(
+    settings,
+    text="SPEED (CPS)",
+    bg=PANEL,
+    fg=MUTED
+).pack(anchor="w")
+
+cps = tk.IntVar(value=3)
+
+tk.Scale(
+    settings,
+    from_=1,
+    to=20,
+    variable=cps,
+    orient="horizontal",
+    bg=PANEL,
+    fg=CYAN,
+    troughcolor=PANEL2,
+    highlightthickness=0,
+    activebackground=PURPLE,
+    length=350
+).pack(fill="x")
+
+tk.Label(
+    settings,
+    text="INPUT MODE",
+    bg=PANEL,
+    fg=MUTED
+).pack(anchor="w", pady=(10, 5))
+
+mode_var = tk.StringVar(value="Clavier")
+
+menu = tk.OptionMenu(
+    settings,
+    mode_var,
+    "Souris",
+    "Clavier",
+    "Combiné"
+)
+
+menu.config(
+    bg=PANEL2,
+    fg=WHITE,
+    activebackground=PURPLE,
+    activeforeground=WHITE,
+    relief="flat",
+    highlightthickness=0,
+    width=20
+)
+
+menu["menu"].config(
+    bg=PANEL2,
+    fg=WHITE
+)
+
+menu.pack(anchor="w")
+
+# BOUTONS
+
+buttons = tk.Frame(root, bg=BG)
+buttons.pack(fill="x", padx=25, pady=18)
+
+start_button = tk.Button(
+    buttons,
+    text="START",
+    command=toggle,
+    bg="#332653",
+    fg=WHITE,
+    activebackground=PURPLE,
+    activeforeground=WHITE,
+    font=("Arial", 11, "bold"),
+    relief="flat",
+    height=2
+)
+
+start_button.pack(
+    side="left",
+    fill="x",
+    expand=True,
+    padx=(0, 5)
+)
+
+tk.Button(
+    buttons,
+    text="STOP",
+    command=stop,
+    bg="#47232E",
+    fg=WHITE,
+    activebackground=RED,
+    activeforeground=WHITE,
+    font=("Arial", 11, "bold"),
+    relief="flat",
+    height=2
+).pack(
+    side="right",
+    fill="x",
+    expand=True,
+    padx=(5, 0)
+)
+
+# RESET
+
+tk.Button(
+    root,
+    text="RESET COUNTERS",
+    command=reset,
+    bg=PANEL2,
+    fg=MUTED,
+    activebackground=PURPLE,
+    relief="flat",
+    width=25,
+    pady=7
+).pack(pady=3)
+
+# RACCOURCIS VISIBLES
+
+shortcut_frame = tk.Frame(
+    root,
+    bg=PANEL,
+    padx=18,
+    pady=12
+)
+
+shortcut_frame.pack(fill="x", padx=25, pady=15)
+
+tk.Label(
+    shortcut_frame,
+    text="KEYBOARD SHORTCUTS",
+    bg=PANEL,
+    fg=WHITE,
+    font=("Arial", 10, "bold")
+).pack(anchor="w", pady=(0, 10))
+
+for key, description in [
+    ("F6", "START / PAUSE"),
+    ("F7", "STOP ALL INPUTS"),
+    ("F10", "EXIT APPLICATION")
+]:
+
+    row = tk.Frame(shortcut_frame, bg=PANEL)
+    row.pack(fill="x", pady=3)
+
+    tk.Label(
+        row,
+        text=key,
+        bg=PANEL2,
+        fg=CYAN,
+        width=8,
+        pady=5,
+        font=("Arial", 9, "bold")
+    ).pack(side="left")
+
+    tk.Label(
+        row,
+        text=description,
+        bg=PANEL,
+        fg=MUTED,
+        font=("Arial", 9)
+    ).pack(side="left", padx=12)
+
+
+# ==========================================
+# FERMETURE
+# ==========================================
+
+def close_app():
+
+    stop()
+
+    keyboard.unhook_all_hotkeys()
+
+    root.destroy()
+
+
+root.protocol("WM_DELETE_WINDOW", close_app)
+
+# Enregistrement des raccourcis
+register_shortcuts()
+
+# LANCEMENT
+root.mainloop()
