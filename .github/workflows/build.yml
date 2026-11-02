@@ -1,4 +1,4 @@
-name: Build Bongo Cat AutoClicker
+name: Build BongoCat-AutoClicker
 
 on:
   push:
